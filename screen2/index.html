@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menu Display – Screen 2</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #111;
+      overflow: hidden;
+    }
+
+    #menu-image {
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+      display: block;
+    }
+
+    #placeholder {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #555;
+      font-family: sans-serif;
+      text-align: center;
+      gap: 16px;
+    }
+
+    #placeholder .icon {
+      font-size: 64px;
+    }
+
+    #placeholder h1 {
+      font-size: 2rem;
+      color: #666;
+      font-weight: 400;
+    }
+
+    #placeholder p {
+      font-size: 1rem;
+      color: #444;
+      max-width: 400px;
+      line-height: 1.6;
+    }
+
+    #placeholder code {
+      background: #222;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+
+  <img id="menu-image" src="" alt="Menu" style="display:none;" />
+
+  <div id="placeholder">
+    <div class="icon">🍽️</div>
+    <h1>Screen 2</h1>
+    <p>Replace <code>menu.jpg</code> in this folder with your menu image to display it here.</p>
+    <p>This screen auto-refreshes every <strong>5 minutes</strong>.</p>
+  </div>
+
+  <script>
+    // ─── Configuration ───────────────────────────────────────────────
+    // Change this filename to match your image (jpg, png, webp all work)
+    const IMAGE_FILE = 'menu.jpg';
+
+    // How often to check for a new image (milliseconds). Default: 5 minutes.
+    const REFRESH_INTERVAL = 5 * 60 * 1000;
+    // ─────────────────────────────────────────────────────────────────
+
+    const img = document.getElementById('menu-image');
+    const placeholder = document.getElementById('placeholder');
+
+    function loadImage() {
+      // Cache-bust by appending timestamp so the browser always fetches fresh
+      const cacheBust = '?v=' + Date.now();
+      const testImg = new Image();
+
+      testImg.onload = () => {
+        img.src = testImg.src;
+        img.style.display = 'block';
+        placeholder.style.display = 'none';
+      };
+
+      testImg.onerror = () => {
+        img.style.display = 'none';
+        placeholder.style.display = 'flex';
+      };
+
+      testImg.src = IMAGE_FILE + cacheBust;
+    }
+
+    // Load immediately, then refresh on interval
+    loadImage();
+    setInterval(loadImage, REFRESH_INTERVAL);
+  </script>
+
+</body>
+</html>
