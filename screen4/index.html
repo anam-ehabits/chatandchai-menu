@@ -3,16 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Menu Display – Screen 4</title>
+  <title>Menu Display – Screen 4 (Slideshow)</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    html, body {
-      width: 100%;
-      height: 100%;
-      background: #111;
-      overflow: hidden;
-    }
+    html, body { width: 100%; height: 100%; background: #111; overflow: hidden; }
 
     .slide {
       position: absolute;
@@ -20,11 +14,7 @@
       opacity: 0;
       transition: opacity 1.5s ease-in-out;
     }
-
-    .slide.active {
-      opacity: 1;
-    }
-
+    .slide.active { opacity: 1; }
     .slide img {
       width: 100vw;
       height: 100vh;
@@ -35,7 +25,7 @@
     #placeholder {
       position: absolute;
       inset: 0;
-      display: flex;
+      display: none;
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -44,128 +34,111 @@
       text-align: center;
       gap: 16px;
     }
-
     #placeholder .icon { font-size: 64px; }
     #placeholder h1 { font-size: 2rem; color: #666; font-weight: 400; }
-    #placeholder p { font-size: 1rem; color: #444; max-width: 400px; line-height: 1.6; }
-    #placeholder code {
-      background: #222;
-      padding: 4px 10px;
-      border-radius: 4px;
-      font-size: 0.9rem;
-      color: #888;
-    }
+    #placeholder p { font-size: 1rem; color: #444; max-width: 460px; line-height: 1.6; }
+    #placeholder code { background: #222; padding: 4px 10px; border-radius: 4px; font-size: 0.9rem; color: #888; }
   </style>
 </head>
 <body>
 
-  <!-- Two slide layers for crossfade -->
-  <div class="slide" id="slide-a"><img id="img-a" src="" alt="Menu" /></div>
-  <div class="slide" id="slide-b"><img id="img-b" src="" alt="Menu" /></div>
+  <div class="slide" id="slide-a"><img id="img-a" src="" alt=""></div>
+  <div class="slide" id="slide-b"><img id="img-b" src="" alt=""></div>
 
-  <div id="placeholder" style="display:none;">
-    <div class="icon">🍽️</div>
+  <div id="placeholder">
+    <div class="icon">🖼️</div>
     <h1>Screen 4</h1>
-    <p>Add images named <code>menu1.jpg</code>, <code>menu2.jpg</code>, and <code>menu3.jpg</code> to this folder.</p>
-    <p>They will cycle automatically with a fade transition.</p>
+    <p>Add pictures to this folder named <code>slide1.jpg</code>, <code>slide2.jpg</code>, <code>slide3.jpg</code> and so on.</p>
   </div>
 
   <script>
     // ─── Configuration ────────────────────────────────────────────────
-    // The images to cycle through (must be in the screen4/ folder)
-    const IMAGES = [
-      '../screen1/menu.jpg',
-      '../screen2/menu.jpg',
-      '../screen3/menu.jpg'
-    ];
+    // Pictures must be named slide1, slide2, slide3 ... with no gaps in the numbers.
+    const PREFIX = 'slide';
+    const EXTENSIONS = ['jpg', 'png', 'jpeg', 'webp'];  // tried in this order
+    const MAX_SLIDES = 30;                               // upper limit to look for
 
-    // How long each image is shown (milliseconds). Default: 8 seconds.
-    const DISPLAY_DURATION = 8000;
-
-    // How often to re-check for updated images (milliseconds). Default: 5 minutes.
-    const REFRESH_INTERVAL = 5 * 60 * 1000;
+    const DISPLAY_DURATION = 8000;          // time each picture is shown (ms)
+    const REFRESH_INTERVAL = 5 * 60 * 1000; // how often to look for new/changed pictures
     // ─────────────────────────────────────────────────────────────────
 
     const slideA = document.getElementById('slide-a');
     const slideB = document.getElementById('slide-b');
-    const imgA   = document.getElementById('img-a');
-    const imgB   = document.getElementById('img-b');
+    const imgA = document.getElementById('img-a');
+    const imgB = document.getElementById('img-b');
     const placeholder = document.getElementById('placeholder');
 
-    let currentIndex = 0;
-    let activeSlide = 'a'; // which layer is currently visible
-    let loadedImages = [];  // successfully loaded image URLs
+    let slides = [];
+    let index = 0;
+    let activeLayer = null;
+    let timer = null;
 
-    // Pre-load all images, collecting the ones that exist
-    function preloadImages(callback) {
-      const loaded = [];
-      let remaining = IMAGES.length;
-
-      IMAGES.forEach((src) => {
+    function tryLoad(url) {
+      return new Promise((resolve) => {
         const t = new Image();
-        const bust = src + '?v=' + Date.now();
-        t.onload  = () => { loaded.push(bust); check(); };
-        t.onerror = () => { check(); };
-        t.src = bust;
+        t.onload = () => resolve(true);
+        t.onerror = () => resolve(false);
+        t.src = url;
       });
-
-      function check() {
-        remaining--;
-        if (remaining === 0) callback(loaded);
-      }
     }
 
-    function showSlide(src) {
-      if (activeSlide === 'a') {
-        // Load next image into B, then fade B in and A out
-        imgB.src = src;
-        slideB.classList.add('active');
-        slideA.classList.remove('active');
-        activeSlide = 'b';
-      } else {
+    // Look for slide1, slide2... stopping at the first number that doesn't exist
+    async function findSlides() {
+      const bust = '?v=' + Date.now();
+      const found = [];
+      for (let n = 1; n <= MAX_SLIDES; n++) {
+        let url = null;
+        for (const ext of EXTENSIONS) {
+          const candidate = PREFIX + n + '.' + ext + bust;
+          if (await tryLoad(candidate)) { url = candidate; break; }
+        }
+        if (!url) break;
+        found.push(url);
+      }
+      return found;
+    }
+
+    function show(src) {
+      if (activeLayer !== 'a') {
         imgA.src = src;
         slideA.classList.add('active');
         slideB.classList.remove('active');
-        activeSlide = 'a';
+        activeLayer = 'a';
+      } else {
+        imgB.src = src;
+        slideB.classList.add('active');
+        slideA.classList.remove('active');
+        activeLayer = 'b';
       }
     }
 
-    function startCycle() {
-      if (loadedImages.length === 0) {
+    function next() {
+      if (slides.length === 0) return;
+      show(slides[index % slides.length]);
+      index++;
+    }
+
+    function start() {
+      clearInterval(timer);
+      if (slides.length === 0) {
         placeholder.style.display = 'flex';
         return;
       }
-
       placeholder.style.display = 'none';
-
-      // Show first image immediately
-      imgA.src = loadedImages[0];
-      slideA.classList.add('active');
-      activeSlide = 'a';
-      currentIndex = 1;
-
-      setInterval(() => {
-        if (loadedImages.length === 0) return;
-        showSlide(loadedImages[currentIndex % loadedImages.length]);
-        currentIndex++;
-      }, DISPLAY_DURATION);
+      next();
+      // A single picture just stays on screen
+      if (slides.length > 1) timer = setInterval(next, DISPLAY_DURATION);
     }
 
-    // Periodically reload images in the background to pick up changes
-    function scheduleRefresh() {
-      setInterval(() => {
-        preloadImages((fresh) => {
-          if (fresh.length > 0) loadedImages = fresh;
-        });
-      }, REFRESH_INTERVAL);
+    async function refresh(first) {
+      const fresh = await findSlides();
+      const changed = fresh.length !== slides.length;
+      slides = fresh;
+      if (first || changed) { index = 0; start(); }
     }
 
-    // Kick everything off
-    preloadImages((images) => {
-      loadedImages = images;
-      startCycle();
-      scheduleRefresh();
-    });
+    refresh(true);
+    setInterval(() => refresh(false), REFRESH_INTERVAL);
   </script>
 
 </body>
