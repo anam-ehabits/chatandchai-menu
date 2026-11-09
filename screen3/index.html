@@ -3,18 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Menu Display – Screen 3</title>
+  <title>Menu Display – Screen 3 (Slideshow)</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #111; overflow: hidden; }
 
-    html, body {
-      width: 100%;
-      height: 100%;
-      background: #111;
-      overflow: hidden;
+    .slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 1.5s ease-in-out;
     }
-
-    #menu-image {
+    .slide.active { opacity: 1; }
+    .slide img {
       width: 100vw;
       height: 100vh;
       object-fit: contain;
@@ -22,9 +23,9 @@
     }
 
     #placeholder {
-      width: 100vw;
-      height: 100vh;
-      display: flex;
+      position: absolute;
+      inset: 0;
+      display: none;
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -33,78 +34,121 @@
       text-align: center;
       gap: 16px;
     }
-
-    #placeholder .icon {
-      font-size: 64px;
-    }
-
-    #placeholder h1 {
-      font-size: 2rem;
-      color: #666;
-      font-weight: 400;
-    }
-
-    #placeholder p {
-      font-size: 1rem;
-      color: #444;
-      max-width: 400px;
-      line-height: 1.6;
-    }
-
-    #placeholder code {
-      background: #222;
-      padding: 4px 10px;
-      border-radius: 4px;
-      font-size: 0.9rem;
-      color: #888;
-    }
+    #placeholder .icon { font-size: 64px; }
+    #placeholder h1 { font-size: 2rem; color: #666; font-weight: 400; }
+    #placeholder p { font-size: 1rem; color: #444; max-width: 460px; line-height: 1.6; }
+    #placeholder code { background: #222; padding: 4px 10px; border-radius: 4px; font-size: 0.9rem; color: #888; }
   </style>
 </head>
 <body>
 
-  <img id="menu-image" src="" alt="Menu" style="display:none;" />
+  <div class="slide" id="slide-a"><img id="img-a" src="" alt=""></div>
+  <div class="slide" id="slide-b"><img id="img-b" src="" alt=""></div>
 
   <div id="placeholder">
-    <div class="icon">🍽️</div>
+    <div class="icon">🖼️</div>
     <h1>Screen 3</h1>
-    <p>Replace <code>menu.jpg</code> in this folder with your menu image to display it here.</p>
-    <p>This screen auto-refreshes every <strong>5 minutes</strong>.</p>
+    <p>Add pictures to this folder named <code>slide1.jpg</code>, <code>slide2.jpg</code>, <code>slide3.jpg</code> and so on.</p>
   </div>
 
   <script>
-    // ─── Configuration ───────────────────────────────────────────────
-    // Change this filename to match your image (jpg, png, webp all work)
-    const IMAGE_FILE = 'menu.jpg';
+    // ─── Configuration ────────────────────────────────────────────────
+    // Pictures must be named slide1, slide2, slide3 ... with no gaps in the numbers.
+    const PREFIX = 'slide';
+    const FALLBACK = 'menu';                             // used if no slide1 exists (keeps your old menu.jpg working)
+    const EXTENSIONS = ['jpg', 'png', 'jpeg', 'webp'];  // tried in this order
+    const MAX_SLIDES = 30;                               // upper limit to look for
 
-    // How often to check for a new image (milliseconds). Default: 5 minutes.
-    const REFRESH_INTERVAL = 5 * 60 * 1000;
+    const DISPLAY_DURATION = 8000;          // time each picture is shown (ms)
+    const REFRESH_INTERVAL = 5 * 60 * 1000; // how often to look for new/changed pictures
     // ─────────────────────────────────────────────────────────────────
 
-    const img = document.getElementById('menu-image');
+    const slideA = document.getElementById('slide-a');
+    const slideB = document.getElementById('slide-b');
+    const imgA = document.getElementById('img-a');
+    const imgB = document.getElementById('img-b');
     const placeholder = document.getElementById('placeholder');
 
-    function loadImage() {
-      // Cache-bust by appending timestamp so the browser always fetches fresh
-      const cacheBust = '?v=' + Date.now();
-      const testImg = new Image();
+    let slides = [];
+    let index = 0;
+    let activeLayer = null;
+    let timer = null;
 
-      testImg.onload = () => {
-        img.src = testImg.src;
-        img.style.display = 'block';
-        placeholder.style.display = 'none';
-      };
-
-      testImg.onerror = () => {
-        img.style.display = 'none';
-        placeholder.style.display = 'flex';
-      };
-
-      testImg.src = IMAGE_FILE + cacheBust;
+    function tryLoad(url) {
+      return new Promise((resolve) => {
+        const t = new Image();
+        t.onload = () => resolve(true);
+        t.onerror = () => resolve(false);
+        t.src = url;
+      });
     }
 
-    // Load immediately, then refresh on interval
-    loadImage();
-    setInterval(loadImage, REFRESH_INTERVAL);
+    async function findFile(name, bust) {
+      for (const ext of EXTENSIONS) {
+        const candidate = name + '.' + ext + bust;
+        if (await tryLoad(candidate)) return candidate;
+      }
+      return null;
+    }
+
+    // Look for slide1, slide2... stopping at the first number that doesn't exist.
+    // If there are none, fall back to a single menu.jpg/png.
+    async function findSlides() {
+      const bust = '?v=' + Date.now();
+      const found = [];
+      for (let n = 1; n <= MAX_SLIDES; n++) {
+        const url = await findFile(PREFIX + n, bust);
+        if (!url) break;
+        found.push(url);
+      }
+      if (found.length === 0) {
+        const single = await findFile(FALLBACK, bust);
+        if (single) found.push(single);
+      }
+      return found;
+    }
+
+    function show(src) {
+      if (activeLayer !== 'a') {
+        imgA.src = src;
+        slideA.classList.add('active');
+        slideB.classList.remove('active');
+        activeLayer = 'a';
+      } else {
+        imgB.src = src;
+        slideB.classList.add('active');
+        slideA.classList.remove('active');
+        activeLayer = 'b';
+      }
+    }
+
+    function next() {
+      if (slides.length === 0) return;
+      show(slides[index % slides.length]);
+      index++;
+    }
+
+    function start() {
+      clearInterval(timer);
+      if (slides.length === 0) {
+        placeholder.style.display = 'flex';
+        return;
+      }
+      placeholder.style.display = 'none';
+      next();
+      // A single picture just stays on screen
+      if (slides.length > 1) timer = setInterval(next, DISPLAY_DURATION);
+    }
+
+    async function refresh(first) {
+      const fresh = await findSlides();
+      const changed = fresh.length !== slides.length;
+      slides = fresh;
+      if (first || changed) { index = 0; start(); }
+    }
+
+    refresh(true);
+    setInterval(() => refresh(false), REFRESH_INTERVAL);
   </script>
 
 </body>
